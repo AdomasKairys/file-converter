@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35013.160
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "file-converter", "file-converter\file-converter.csproj", "{00486A3F-7E04-49A2-9166-A3AC2FDAEF02}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "file-converter-client", "file-converter\file-converter-client.csproj", "{00486A3F-7E04-49A2-9166-A3AC2FDAEF02}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "file-converter-api", "file-converter-api\file-converter-api.csproj", "{BA6869B6-5D12-45D4-BEA0-8AD114FFCF9F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{00486A3F-7E04-49A2-9166-A3AC2FDAEF02}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00486A3F-7E04-49A2-9166-A3AC2FDAEF02}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00486A3F-7E04-49A2-9166-A3AC2FDAEF02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA6869B6-5D12-45D4-BEA0-8AD114FFCF9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA6869B6-5D12-45D4-BEA0-8AD114FFCF9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA6869B6-5D12-45D4-BEA0-8AD114FFCF9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA6869B6-5D12-45D4-BEA0-8AD114FFCF9F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
