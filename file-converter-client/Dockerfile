@@ -9,10 +9,10 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["file-converter/file-converter-client.csproj", "file-converter/"]
-RUN dotnet restore "./file-converter/file-converter-client.csproj"
+COPY ["file-converter-client/file-converter-client.csproj", "file-converter-client/"]
+RUN dotnet restore "./file-converter-client/file-converter-client.csproj"
 COPY . .
-WORKDIR "/src/file-converter"
+WORKDIR "/src/file-converter-client"
 RUN dotnet build "./file-converter-client.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
