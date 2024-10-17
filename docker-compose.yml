@@ -1,25 +1,19 @@
 version: '3.4'
 
 services:
-  mongodb_container:
+  mongodb:
     image: mongodb/mongodb-community-server:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: rootpassword
-    ports:
-      - 27017:27017
-    volumes:
-      - mongodb_data_container:/data/db
-  file-converter-client:
+  fileconverterclient:
     image: ${DOCKER_REGISTRY-}fileconverterclient
     build:
       context: .
       dockerfile: file-converter-client/Dockerfile
-  file-converter-api:
+  fileconverterapi:
     image: ${DOCKER_REGISTRY-}fileconverterapi
     build:
       context: .
       dockerfile: file-converter-api/Dockerfile
-volumes:
-  mongodb_data_container:
+    depends_on:
+         - mongodb
+
 #mongodb://root:rootpassword@localhost:27017

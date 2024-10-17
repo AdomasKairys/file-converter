@@ -1,7 +1,55 @@
-﻿@page "/"
+﻿@rendermode InteractiveServer
+@page "/"
 
 <PageTitle>Home</PageTitle>
 
 <h1>Hello, world!</h1>
 
-Welcome to your new app.
+<InputFile OnChange="Submit"/>
+
+@code{
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
+
+    private async Task Submit(InputFileChangeEventArgs e)
+    {
+        var browserFile = e.File;
+
+        if (browserFile != null)
+        {
+            try
+            {
+                var fileStream = browserFile.OpenReadStream();
+
+                var randomFile = Path.GetTempFileName();
+                var extension = Path.GetExtension(browserFile.Name);
+                var targetFilePath = Path.ChangeExtension(randomFile, extension);
+
+                var destinationStream = new FileStream(targetFilePath, FileMode.Create);
+                await fileStream.CopyToAsync(destinationStream);
+                destinationStream.Close();
+
+                var client = new RestClient("http://host.docker.internal:5081/");
+
+                var request = new RestRequest("api/FileCollectionController");
+
+                request.AddHeader("Content-Type", "multipart/form-data");
+
+                request.AddFile("file", targetFilePath);
+
+                var response = (await client.ExecutePostAsync(request)).ResponseStatus;
+                Console.WriteLine("response :" + response);
+
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.Message);
+            }
+        }
+
+        
+
+    }
+}

@@ -1,15 +1,29 @@
 version: '3.4'
 
 services:
-  file-converter-client:
+  mongodb:
+    environment:
+      - MONGODB_INITDB_ROOT_USERNAME=root
+      - MONGODB_INITDB_ROOT_PASSWORD=rootpassword
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+  fileconverterclient:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
     ports:
       - "5001:8080"
-  file-converter-api:
+  fileconverterapi:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
+      - MongoDB__ConnectionURI=mongodb://root:rootpassword@host.docker.internal:27017
+      - MongoDB__DatabaseName=file-converter-db
+      - MongoDB__CollectionName=files
     ports:
       - "5081:8080"
+volumes:
+    mongodb-data:
+        external: false
