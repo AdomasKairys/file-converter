@@ -7,6 +7,10 @@ using System;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Diagnostics;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Collections;
+using System.Net.Mime;
+using System.Xml.Linq;
+using Microsoft.AspNetCore.Mvc;
 
 namespace file_converter_api.Services;
 
@@ -26,19 +30,37 @@ public class MongoDBService
     public async Task CreateAsync(FileCollection fileCollection) 
     {
         IFormFile file = fileCollection.file;
-        long length = file.Length;
-        using var fileStream = file.OpenReadStream();
-        byte[] bytes = new byte[length];
-        fileStream.Read(bytes, 0, (int)file.Length);
+        using (var fileStream = file.OpenReadStream())
+        {
+            var convertedFile = FileConverterLogic.ConvertImage(fileStream, file.ContentType, file.Name);
 
-        var id = await _bucket.UploadFromBytesAsync("filename", bytes);
+            GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
+            var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
 
-        //await _fileCollection.InsertOneAsync(fileCollection);
+            fileCollection.convertedFileId = id;
+
+            await _fileCollection.InsertOneAsync(fileCollection);
+        }
         return;
     }
     public async Task<List<FileCollection>> GetAsync()
     {
         return await _fileCollection.Find(new BsonDocument()).ToListAsync();
+    }
+    public async Task<(byte[] Bytes, string ConvertedType, string FileName)> GetConvertedFileAsync(string id)
+    {
+        FilterDefinition<FileCollection> filter = Builders<FileCollection>.Filter.Eq("Id", id);
+        var element = (await _fileCollection.FindAsync(filter)).First();
+
+        if (element.convertedFileId.HasValue) // change to convertedFileId
+        {
+            FilterDefinition<GridFSFileInfo> filterGridFs = Builders<GridFSFileInfo>.Filter.Eq("_id", element.convertedFileId.Value);
+            var file = (await _bucket.FindAsync(filterGridFs)).First();
+            byte[] fileBytes = await _bucket.DownloadAsBytesAsync(element.convertedFileId.Value);
+           
+            return (fileBytes, file.ContentType, file.Filename);
+        }
+        throw new Exception("no file found");
     }
     public async Task AddToFileCollectionAsync(string id, string fileId)
     {
@@ -50,6 +72,11 @@ public class MongoDBService
     public async Task DeleteAsync(string id)
     {
         FilterDefinition<FileCollection> filter = Builders<FileCollection>.Filter.Eq("Id", id);
+        var element = (await _fileCollection.FindAsync(filter)).First();
+        if (element.convertedFileId.HasValue)
+        {
+            await _bucket.DeleteAsync(element.convertedFileId.Value);
+        }
         await _fileCollection.DeleteOneAsync(filter);
         return;
     }

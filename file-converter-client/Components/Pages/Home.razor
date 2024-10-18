@@ -6,13 +6,13 @@
 <h1>Hello, world!</h1>
 
 <InputFile OnChange="Submit"/>
+<a id="exportCsv" class="btn" href="http://localhost:5081/api/FileCollection/671217a59c125c1ebb13141b" role="button" target="=_top">Export to CSV</a>
 
 @code{
     protected override void OnInitialized()
     {
         base.OnInitialized();
     }
-
     private async Task Submit(InputFileChangeEventArgs e)
     {
         var browserFile = e.File;
@@ -33,15 +33,14 @@
 
                 var client = new RestClient("http://host.docker.internal:5081/");
 
-                var request = new RestRequest("api/FileCollectionController");
+                var request = new RestRequest("api/FileCollection");
 
                 request.AddHeader("Content-Type", "multipart/form-data");
 
                 request.AddFile("file", targetFilePath);
 
-                var response = (await client.ExecutePostAsync(request)).ResponseStatus;
+                var response = (await client.ExecutePostAsync(request));
                 Console.WriteLine("response :" + response);
-
             }
             catch (Exception exception)
             {

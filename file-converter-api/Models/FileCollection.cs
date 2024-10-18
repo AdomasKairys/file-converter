@@ -13,9 +13,9 @@ public class FileCollection
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
     public string username { get; set; } = null!;
+    public ObjectId? convertedFileId { get; set; } = null!;
 
-    [BsonElement("items")]
-    [JsonPropertyName("items")]
+    [BsonIgnore]
     public IFormFile file { get; set; } = null!;
 }
 

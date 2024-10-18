@@ -24,6 +24,20 @@ public class FileCollectionController : Controller
     {
         return await _mongoDBService.GetAsync();
     }
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetConvertedFile(string id)
+    {
+        try
+        {
+            var file = await _mongoDBService.GetConvertedFileAsync(id);
+            return File(file.Bytes, file.ConvertedType, file.FileName);
+        }
+        catch(Exception ex)
+        {
+            return NotFound(ex.Message);
+        }
+        
+    }
 
     [HttpPost]
     public async Task<IActionResult> Post([FromForm] FileCollection file) 
