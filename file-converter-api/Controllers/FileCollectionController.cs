@@ -40,11 +40,7 @@ public class FileCollectionController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Post([FromForm] FileCollection file) 
-    {
-        await _mongoDBService.CreateAsync(file);
-        return NoContent();
-    }
+    public async Task<IActionResult> Post([FromForm] FileCollection fileToConvert) => Ok(await _mongoDBService.CreateAsync(fileToConvert));
 
     [HttpPut("{id}")]
     public async Task<IActionResult> AddToFileCollection(string id, [FromBody] string fileId)

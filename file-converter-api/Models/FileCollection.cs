@@ -17,5 +17,9 @@ public class FileCollection
 
     [BsonIgnore]
     public IFormFile file { get; set; } = null!;
+    [BsonIgnore]
+    public string convertTo { get; set; } = null!;
+    [BsonIgnore]
+    public string fileName { get; set; } = null!;
 }
 

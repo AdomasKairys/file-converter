@@ -3,27 +3,36 @@ using System;
 using System.IO;
 using Microsoft.AspNetCore.StaticFiles;
 using SkiaSharp;
+using ImageMagick;
+using Amazon.Runtime.Internal.Util;
 
 namespace file_converter_api;
 
 public static class FileConverterLogic
 {
-    public static (Stream Stream, string ConvertedType, string FileName) ConvertImage(Stream fileStream, string contentType, string fileName)
+    public static (Stream Stream, string ConvertedType, string FileName) ConvertImage(Stream fileStream, string fileName, string convertTo)
     {
-        SKEncodedImageFormat format = SKEncodedImageFormat.Jpeg;
-        
-        SKImage image = SKImage.FromEncodedData(fileStream);
+        Console.WriteLine(convertTo);
+        if (Enum.TryParse(convertTo, out MagickFormat format))
+        {
+            //SKImage image = SKImage.FromEncodedData(fileStream);
 
-        var outputStream = image.Encode(format, 100).AsStream();
+            var image = new MagickImage(fileStream);
+            var outputStream = new MemoryStream();
 
-        string outputContentType;
-        string outputFileName = Path.ChangeExtension(fileName, format.ToString().ToLower());
-        new FileExtensionContentTypeProvider().TryGetContentType(outputFileName, out outputContentType);
-        outputContentType = outputContentType ?? "application/octet-stream";
+            string outputContentType;
 
-        image.Dispose();
+            image.Write(outputStream, format);
 
-        return (outputStream, outputContentType, outputFileName);
+            outputStream.Position = 0;
+            string outputFileName = Path.ChangeExtension(fileName, format.ToString().ToLower());
+            new FileExtensionContentTypeProvider().TryGetContentType(outputFileName, out outputContentType);
+            outputContentType = outputContentType ?? "application/octet-stream";
+
+
+            return (outputStream, outputContentType, outputFileName);
+        }
+        throw new Exception("Unsupported file format");
     }
 }
 

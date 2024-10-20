@@ -27,21 +27,28 @@ public class MongoDBService
         _bucket = new GridFSBucket(database);
     }
 
-    public async Task CreateAsync(FileCollection fileCollection) 
+    public async Task<string> CreateAsync(FileCollection fileCollection) 
     {
         IFormFile file = fileCollection.file;
-        using (var fileStream = file.OpenReadStream())
+        try
         {
-            var convertedFile = FileConverterLogic.ConvertImage(fileStream, file.ContentType, file.Name);
+            using (var fileStream = file.OpenReadStream())
+            {
+                var convertedFile = FileConverterLogic.ConvertImage(fileStream, fileCollection.fileName, fileCollection.convertTo);
 
-            GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
-            var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
+                GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
+                var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
 
-            fileCollection.convertedFileId = id;
+                fileCollection.convertedFileId = id;
 
-            await _fileCollection.InsertOneAsync(fileCollection);
+                await _fileCollection.InsertOneAsync(fileCollection);
+            }
+            return fileCollection.Id;
         }
-        return;
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
     }
     public async Task<List<FileCollection>> GetAsync()
     {
