@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1" MembersFormat="FullSignature">
+  <Class Name="file_converter_api.Services.MongoDBService">
+    <Position X="1.75" Y="2" Width="5.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAQAAAAAAACAAAAAAAAgAAAAAAAAIIAACIA=</HashCode>
+      <FileName>Services\MongoDBService.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="file_converter_api.Models.FileCollection">
+    <Position X="4.5" Y="5" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAACAAAAAAAAAAAAAAAAAgEAAAAAAAAABEAgAAAAAAA=</HashCode>
+      <FileName>Models\FileCollection.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="file_converter_api.Models.MongoDBSettings">
+    <Position X="1.75" Y="5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAQAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAA=</HashCode>
+      <FileName>Models\MongoDBSettings.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="file_converter_api.Controllers.FileCollectionController">
+    <Position X="7.25" Y="2" Width="6.5" />
+    <TypeIdentifier>
+      <HashCode>AAACQAAAAAAAAABAAAAAAQAAKAEAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Controllers\FileCollectionController.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="file_converter_api.FileConverterLogic">
+    <Position X="7.5" Y="5" Width="4.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>FileConverterLogic.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>
