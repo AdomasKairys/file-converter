@@ -3,14 +3,6 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver.GridFS;
-using System;
-using Microsoft.AspNetCore.Mvc.Filters;
-using System.Diagnostics;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Collections;
-using System.Net.Mime;
-using System.Xml.Linq;
-using Microsoft.AspNetCore.Mvc;
 
 namespace file_converter_api.Services;
 
@@ -27,7 +19,7 @@ public class MongoDBService
         _bucket = new GridFSBucket(database);
     }
 
-    public async Task<string> CreateAsync(FileCollection fileCollection) 
+    public async Task<(bool IsSuccess, string Message)> CreateAsync(FileCollection fileCollection) 
     {
         IFormFile file = fileCollection.file;
         try
@@ -43,11 +35,11 @@ public class MongoDBService
 
                 await _fileCollection.InsertOneAsync(fileCollection);
             }
-            return fileCollection.Id;
+            return (true, fileCollection.Id);
         }
         catch (Exception ex)
         {
-            return ex.Message;
+            return (false,ex.Message);
         }
     }
     public async Task<List<FileCollection>> GetAsync()

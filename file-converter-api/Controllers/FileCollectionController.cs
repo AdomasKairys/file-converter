@@ -32,15 +32,22 @@ public class FileCollectionController : Controller
             var file = await _mongoDBService.GetConvertedFileAsync(id);
             return File(file.Bytes, file.ConvertedType, file.FileName);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             return NotFound(ex.Message);
         }
-        
+
     }
 
     [HttpPost]
-    public async Task<IActionResult> Post([FromForm] FileCollection fileToConvert) => Ok(await _mongoDBService.CreateAsync(fileToConvert));
+    public async Task<IActionResult> Post([FromForm] FileCollection fileToConvert)
+    {
+        var result = await _mongoDBService.CreateAsync(fileToConvert);
+
+        if (result.IsSuccess)
+            return Ok(result.Message);
+        return NotFound(result.Message);
+    }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> AddToFileCollection(string id, [FromBody] string fileId)
