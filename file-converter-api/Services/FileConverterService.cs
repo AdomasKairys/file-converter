@@ -5,13 +5,20 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver.GridFS;
 
 namespace file_converter_api.Services;
+class StreamHolder : IDisposable
+{
+    public List<Stream> Streams { get; }
 
-public class MongoDBService
+    public StreamHolder() => Streams = new List<Stream>();
+    public void AddStream(Stream stream) => Streams.Add(stream);
+    public void Dispose() => Streams.ForEach(x => x.Dispose());
+}
+public class FileConverterService
 {
     private readonly IMongoCollection<FileCollection> _fileCollection;
     private readonly IGridFSBucket _bucket;
 
-    public MongoDBService(IOptions<MongoDBSettings> mongoDBSettigns)
+    public FileConverterService(IOptions<MongoDBSettings> mongoDBSettigns)
     {
         MongoClient client = new MongoClient(mongoDBSettigns.Value.ConnectionURI);
         IMongoDatabase database = client.GetDatabase(mongoDBSettigns.Value.DatabaseName);
@@ -19,9 +26,9 @@ public class MongoDBService
         _bucket = new GridFSBucket(database);
     }
 
-    public async Task<(bool IsSuccess, string Message)> CreateAsync(FileCollection fileCollection) 
+    public async Task<(bool IsSuccess, string Message)> ConvertImageAsync(FileCollection fileCollection) 
     {
-        IFormFile file = fileCollection.file;
+        IFormFile file = fileCollection.file[0];
         try
         {
             using (var fileStream = file.OpenReadStream())
@@ -30,36 +37,59 @@ public class MongoDBService
 
                 GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
                 var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
-
+                convertedFile.Stream.Close();
                 fileCollection.convertedFileId = id;
 
                 await _fileCollection.InsertOneAsync(fileCollection);
             }
-            return (true, fileCollection.Id);
+            return (true, fileCollection.convertedFileId.ToString());
         }
         catch (Exception ex)
         {
             return (false,ex.Message);
         }
     }
+    public async Task<(bool IsSuccess, string Message)> ImagesToVideoAsync(FileCollection fileCollection)
+    {
+        try
+        {
+            var stream = new MemoryStream();
+            using (StreamHolder frames = new StreamHolder())
+            {
+                foreach (var file in fileCollection.file) 
+                    frames.AddStream(file.OpenReadStream());
+
+                var convertedFile = FileConverterLogic.ImagesToVideo(frames.Streams, fileCollection.fileName);
+
+                GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
+                var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
+                convertedFile.Stream.Close();
+                fileCollection.convertedFileId = id;
+
+                await _fileCollection.InsertOneAsync(fileCollection);
+
+            }
+            return (true, fileCollection.convertedFileId.ToString());
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+
     public async Task<List<FileCollection>> GetAsync()
     {
         return await _fileCollection.Find(new BsonDocument()).ToListAsync();
     }
     public async Task<(byte[] Bytes, string ConvertedType, string FileName)> GetConvertedFileAsync(string id)
     {
-        FilterDefinition<FileCollection> filter = Builders<FileCollection>.Filter.Eq("Id", id);
-        var element = (await _fileCollection.FindAsync(filter)).First();
+        ObjectId convertedFileObjectId = new ObjectId(id);
+        FilterDefinition<GridFSFileInfo> filterGridFs = Builders<GridFSFileInfo>.Filter.Eq("_id", convertedFileObjectId);
+        var file = (await _bucket.FindAsync(filterGridFs)).First();
+        byte[] fileBytes = await _bucket.DownloadAsBytesAsync(convertedFileObjectId);
 
-        if (element.convertedFileId.HasValue) // change to convertedFileId
-        {
-            FilterDefinition<GridFSFileInfo> filterGridFs = Builders<GridFSFileInfo>.Filter.Eq("_id", element.convertedFileId.Value);
-            var file = (await _bucket.FindAsync(filterGridFs)).First();
-            byte[] fileBytes = await _bucket.DownloadAsBytesAsync(element.convertedFileId.Value);
-           
-            return (fileBytes, file.ContentType, file.Filename);
-        }
-        throw new Exception("no file found");
+        return (fileBytes, file.ContentType, file.Filename);
     }
     public async Task AddToFileCollectionAsync(string id, string fileId)
     {

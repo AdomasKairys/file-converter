@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "file-converter-api", "file-
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{1448B9A8-0C07-4CA6-929B-EF0A63BD11AD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "file-converter-client", "file-converter-client\file-converter-client.csproj", "{C376F8C4-C08D-47B2-A68F-43D49657712B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "file-converter-client", "file-converter-client\file-converter-client.csproj", "{C376F8C4-C08D-47B2-A68F-43D49657712B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

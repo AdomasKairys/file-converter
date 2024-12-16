@@ -1,0 +1,167 @@
+﻿@rendermode InteractiveServer
+@page "/images-to-video"
+
+<PageTitle>Images To Video</PageTitle>
+
+<h1>Images To Video</h1>
+<div class="w-50">
+    <div class="d-flex flex-column flex-md-row justify-content-between">
+        <div class="align-self-center p-3">
+            <InputFile id="@($"selectedFiles")" style="display: none;" multiple OnChange="(e)=>AddFileToList(e)" />
+            <input type="button" class="btn btn-danger" value="Browse..." onclick="@($"document.getElementById('selectedFiles').click();")" />
+        </div>
+        <div class="align-self-center p-3">
+            @if (SelectedImages.PathToFiles.Count != 0)
+            {
+                <a class="btn btn-primary" @onclick="Submit">Convert</a>
+            }
+        </div>
+        <div class="text-end align-self-center p-3 w-25">
+            @if (SelectedImages.IsWaitingForResponse)
+            {
+                <div class="spinner-border text-warning" role="status"></div>
+            }
+            else if (SelectedImages.ErrorMessage != null)
+            {
+                <span class="text-danger">@SelectedImages.ErrorMessage</span>
+            }
+            else if (SelectedImages.ConvertedFileId != null)
+            {
+                <a id="download" class="btn btn-success" href="@($"http://localhost:5081/api/FileCollection/{SelectedImages.ConvertedFileId}")" role="button" target="=_top">Download</a>
+            }
+        </div>
+    </div>
+
+    @foreach (var (path, name) in SelectedImages.PathToFiles)
+    {
+        <div class="card file mb-1">
+            <div class="card-content">
+                <div class="d-flex flex-column flex-md-row justify-content-between">
+                    <div class="align-self-center p-3 w-25">
+                        <i class="bi bi-file-earmark-fill"></i>
+                        <span>@name</span>
+                    </div>
+                    
+                    <div class="align-self-center text-nowrap p-3">
+                        <a title="Delete" @onclick="()=>Delete(path)">
+                            <i class="text-black bi bi-x h2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    
+</div>
+
+@code {
+    private VideoFrames SelectedImages { get; set; } = new VideoFrames();
+    private const int MAX_ALLOWED_SIZE = 100000000;
+    private const int MAX_ALLOWED_FILE = 1000;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
+    private async void AddFileToList(InputFileChangeEventArgs e)
+    {
+        SelectedImages.ConvertedFileId = null;
+        foreach (var file in e.GetMultipleFiles(MAX_ALLOWED_FILE))
+        {
+            using (var fileStream = file.OpenReadStream(MAX_ALLOWED_SIZE))
+            {
+                var randomFile = Path.GetTempFileName();
+                var extension = Path.GetExtension(file.Name);
+                var targetFilePath = Path.ChangeExtension(randomFile, extension);
+
+                var destinationStream = new FileStream(targetFilePath, FileMode.Create);
+                await fileStream.CopyToAsync(destinationStream);
+                destinationStream.Close();
+                SelectedImages.AddFile(targetFilePath, file.Name);
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+    private void Submit()
+    {
+        List<Task> submitFilesForConversion = new List<Task>();
+        if (SelectedImages.ConvertedFileId != null)
+            return;
+
+        submitFilesForConversion.Add(Task.Factory.StartNew(async () =>
+            {
+                SelectedImages.IsWaitingForResponse = true;
+
+                var client = new RestClient("http://host.docker.internal:5081/");
+                var request = new RestRequest("api/FileCollection/ImagesToVideo");
+                request.AddHeader("Content-Type", "multipart/form-data");
+                request.AddParameter("fileName", "image.png");
+
+
+                await InvokeAsync(StateHasChanged);
+
+                foreach(var (path,_) in SelectedImages.PathToFiles)
+                {
+                    request.AddFile("file", path);
+                }
+
+                try
+                {
+                    var response = client.ExecutePost(request);
+                    Console.WriteLine("response :" + response.Content);
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                        throw new Exception("Conversion not possible");
+
+                    SelectedImages.ConvertedFileId = String.Concat(response.Content.Where((c) => c != '\"'));
+                    SelectedImages.ErrorMessage = null;
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception.Message);
+                    SelectedImages.ErrorMessage = exception.Message;
+                }
+
+                SelectedImages.IsWaitingForResponse = false;
+                await InvokeAsync(StateHasChanged);
+            })
+        );
+        Task.WaitAll(submitFilesForConversion.ToArray());
+    }
+    private async Task Delete(string file)
+    {
+        if (SelectedImages.ConvertedFileId != null)
+        {
+            try
+            {
+                var client = new RestClient("http://host.docker.internal:5081/");
+
+                var request = new RestRequest($"api/FileCollection/{SelectedImages.ConvertedFileId}");
+
+                var response = (await client.ExecuteDeleteAsync(request));
+                Console.WriteLine("response :" + response.Content);
+                SelectedImages.ConvertedFileId = null;
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.Message);
+            }
+        }
+        SelectedImages.RemoveFile(file);
+    }
+    private class VideoFrames
+    {
+        public Dictionary<string, string> PathToFiles { get; }
+        public string? ConvertedFileId { get; set; } = null!;
+        public string? ErrorMessage { get; set; } = null!;
+        public bool IsWaitingForResponse { get; set; }
+
+        public VideoFrames()
+        {
+            PathToFiles = new Dictionary<string, string>();
+            IsWaitingForResponse = false;
+        }
+        public void AddFile(string path, string name) => PathToFiles.Add(path,name);
+        public void RemoveFile(string path) => PathToFiles.Remove(path);
+
+    }
+}

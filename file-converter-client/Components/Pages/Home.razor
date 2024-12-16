@@ -1,8 +1,52 @@
-﻿@page "/"
+﻿@rendermode InteractiveServer
+@page "/"
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello</h1>
+<h3>File Uploader</h3>
 
-<p>This component demonstrates showing data.</p>
+<!-- File Input -->
+<InputFile @key="1" id="@($"selectedFile")" multiple OnChange="(e)=>HandleFileSelection(e)" />
 
+
+<h4>Selected Files:</h4>
+<ul>
+    @foreach (var file in SelectedFiles)
+    {
+        <li>@file.Name (@(file.Size / 1024) KB)</li>
+    }
+</ul>
+
+<button @onclick="UploadFiles" class="btn btn-primary" disabled="@(SelectedFiles.Count == 0)">Upload Files</button>
+
+@code {
+    // List to store selected files
+    private List<IBrowserFile> SelectedFiles = new();
+
+    // Handle file selection
+    private void HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles())
+        {
+            // Prevent duplicate files based on name and size
+            if (!SelectedFiles.Any(f => f.Name == file.Name && f.Size == file.Size))
+            {
+                SelectedFiles.Add(file);
+            }
+        }
+    }
+
+    // Simulate file upload process
+    private async Task UploadFiles()
+    {
+        foreach (var file in SelectedFiles)
+        {
+            // Perform upload logic here (e.g., send to API endpoint)
+            Console.WriteLine($"Uploading {file.Name} ({file.Size} bytes)");
+            await Task.Delay(100); // Simulate delay
+        }
+
+        // Clear files after upload (optional)
+        SelectedFiles.Clear();
+    }
+}

@@ -15,7 +15,7 @@ public class FileCollection
     public ObjectId? convertedFileId { get; set; } = null!;
 
     [BsonIgnore]
-    public IFormFile file { get; set; } = null!;
+    public IFormFile[] file { get; set; } = null!;
     [BsonIgnore]
     public string convertTo { get; set; } = null!;
     [BsonIgnore]
