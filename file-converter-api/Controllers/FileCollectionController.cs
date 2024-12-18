@@ -3,20 +3,23 @@ using Microsoft.AspNetCore.Mvc;
 using file_converter_api.Services;
 using file_converter_api.Models;
 using Microsoft.AspNetCore.Mvc.Filters;
+using System.IO;
 
 namespace file_converter_api.Controllers;
 
 [Controller]
 [Route("api/[controller]")]
-public class FileCollectionController : Controller
+public class FileCollectionController : ControllerBase
 {
     private readonly FileConverterService _fileConverterService;
+    private readonly ClamAVService _clamService;
     private readonly ILogger<FileCollectionController> _logger;
 
-    public FileCollectionController(FileConverterService mongoDBService, ILogger<FileCollectionController> logger)
+    public FileCollectionController(FileConverterService fileConverterService, ClamAVService clamService, ILogger<FileCollectionController> logger)
     {
-        _fileConverterService = mongoDBService;
+        _fileConverterService = fileConverterService;
         _logger = logger;
+        _clamService = clamService;
     }
 
     [HttpGet]
@@ -36,28 +39,52 @@ public class FileCollectionController : Controller
         {
             return NotFound(ex.Message);
         }
-
+    }
+    [HttpGet("MultiDownload")]
+    public async Task<IActionResult> GetMultipleFilesAsZip([FromQuery] string[] ids)
+    {
+        try
+        {
+            _logger.LogInformation(string.Join(";", ids));
+            var file = await _fileConverterService.GetMultipleFilesAsZipAsync(ids);
+            HttpContext.Response.RegisterForDispose(file.Stream);
+            return File(file.Stream, file.ConvertedType, file.FileName);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     // TODO: change to [HttpPost("/convertImage")]
     [HttpPost]
     public async Task<IActionResult> Post([FromForm] FileCollection fileToConvert)
     {
+        if(!await _clamService.ScanFileForViruses(fileToConvert.file))
+        {
+            return BadRequest("File failed virus scan");
+        }
+
         var result = await _fileConverterService.ConvertImageAsync(fileToConvert);
 
         if (result.IsSuccess)
             return Ok(result.Message);
-        return NotFound(result.Message);
+        return BadRequest(result.Message);
     }
 
     [HttpPost("ImagesToVideo")]
     public async Task<IActionResult> PostImagesToVideo([FromForm] FileCollection fileToConvert)
     {
+        if (!await _clamService.ScanFileForViruses(fileToConvert.file))
+        {
+            return BadRequest("File failed virus scan");
+        }
+
         var result = await _fileConverterService.ImagesToVideoAsync(fileToConvert);
 
         if (result.IsSuccess)
             return Ok(result.Message);
-        return NotFound(result.Message);
+        return BadRequest(result.Message);
     }
 
     [HttpPut("{id}")]

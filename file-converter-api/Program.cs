@@ -1,16 +1,25 @@
 using file_converter_api.Models;
 using file_converter_api.Services;
-using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Bson.Serialization;
+using file_converter_api;
 using FFMpegCore;
 using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure logging
+builder.Logging.AddConsole();
+builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+builder.Logging.AddConsole();
+
 // Add services to the container.
 builder.Services.Configure<MongoDBSettings>(builder.Configuration.GetSection("MongoDB"));
+builder.Services.AddSingleton<ClamAVService>();
 builder.Services.AddSingleton<FileConverterService>();
+
+
 GlobalFFOptions.Configure(new FFOptions { BinaryFolder = "/usr/bin", TemporaryFilesFolder = "/tmp" });
+FileConverterLogic.GetImageFormatInfoToFile();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

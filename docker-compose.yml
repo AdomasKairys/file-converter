@@ -1,6 +1,8 @@
 version: '3.4'
 
 services:
+  clamav:
+    image: clamav/clamav
   mongodb:
     image: mongodb/mongodb-community-server:latest
   fileconverterclient:

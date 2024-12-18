@@ -1,10 +1,14 @@
 using file_converter_client.Components;
+using file_converter_client.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddHostedService<TempFileCleanupService>();
+builder.Services.AddBlazorBootstrap();
 
 var app = builder.Build();
 

@@ -3,16 +3,12 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver.GridFS;
+using nClam;
+using System.IO.Compression;
+using ZstdSharp.Unsafe;
 
 namespace file_converter_api.Services;
-class StreamHolder : IDisposable
-{
-    public List<Stream> Streams { get; }
 
-    public StreamHolder() => Streams = new List<Stream>();
-    public void AddStream(Stream stream) => Streams.Add(stream);
-    public void Dispose() => Streams.ForEach(x => x.Dispose());
-}
 public class FileConverterService
 {
     private readonly IMongoCollection<FileCollection> _fileCollection;
@@ -28,10 +24,9 @@ public class FileConverterService
 
     public async Task<(bool IsSuccess, string Message)> ConvertImageAsync(FileCollection fileCollection) 
     {
-        IFormFile file = fileCollection.file[0];
         try
         {
-            using (var fileStream = file.OpenReadStream())
+            using (var fileStream = fileCollection.file.OpenReadStream())
             {
                 var convertedFile = FileConverterLogic.ConvertImage(fileStream, fileCollection.fileName, fileCollection.convertTo);
 
@@ -54,16 +49,14 @@ public class FileConverterService
         try
         {
             var stream = new MemoryStream();
-            using (StreamHolder frames = new StreamHolder())
+            using (var frames = fileCollection.file.OpenReadStream())
             {
-                foreach (var file in fileCollection.file) 
-                    frames.AddStream(file.OpenReadStream());
-
-                var convertedFile = FileConverterLogic.ImagesToVideo(frames.Streams, fileCollection.fileName);
+                var convertedFile = FileConverterLogic.ImagesToVideo(frames, fileCollection.fileName);
 
                 GridFSUploadOptions uploadOptions = new GridFSUploadOptions() { ContentType = convertedFile.ConvertedType };
-                var id = await _bucket.UploadFromStreamAsync(convertedFile.FileName, convertedFile.Stream, uploadOptions);
+                var id = await _bucket.UploadFromStreamAsync(convertedFile.FilePath, convertedFile.Stream, uploadOptions);
                 convertedFile.Stream.Close();
+                File.Delete(convertedFile.FilePath);
                 fileCollection.convertedFileId = id;
 
                 await _fileCollection.InsertOneAsync(fileCollection);
@@ -90,6 +83,32 @@ public class FileConverterService
         byte[] fileBytes = await _bucket.DownloadAsBytesAsync(convertedFileObjectId);
 
         return (fileBytes, file.ContentType, file.Filename);
+    }
+    public async Task<(Stream Stream, string ConvertedType, string FileName)> GetMultipleFilesAsZipAsync(string[] ids)
+    {
+        var randomFile = Path.GetTempFileName();
+        var targetFilePath = Path.ChangeExtension(randomFile, ".zip");
+
+        var zipStream = new FileStream(targetFilePath, FileMode.Create);
+        using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var id in ids)
+            {
+                ObjectId convertedFileObjectId = new ObjectId(id);
+                FilterDefinition<GridFSFileInfo> filterGridFs = Builders<GridFSFileInfo>.Filter.Eq("_id", convertedFileObjectId);
+                var file = (await _bucket.FindAsync(filterGridFs)).First();
+                byte[] fileBytes = await _bucket.DownloadAsBytesAsync(convertedFileObjectId);
+
+                var entry = archive.CreateEntry(file.Filename, CompressionLevel.Optimal);
+
+                using (var entryStream = entry.Open())
+                {
+                    await entryStream.WriteAsync(fileBytes, 0, fileBytes.Length);
+                }
+            }
+        }
+        zipStream.Position = 0;
+        return (zipStream, "application/octet-stream", Path.GetFileName(targetFilePath));
     }
     public async Task AddToFileCollectionAsync(string id, string fileId)
     {

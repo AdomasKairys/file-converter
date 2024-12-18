@@ -1,6 +1,7 @@
 ﻿@rendermode InteractiveServer
 @page "/image-converter"
 
+
 <PageTitle>Image Converter</PageTitle>
 
 <h1>Image Converter</h1>
@@ -16,10 +17,16 @@
             {
                 <a class="btn btn-primary" @onclick="Submit">Convert</a>
             }
+            @if (SelectedImages.All((img) => img.ConvertedFileId != null))
+            {
+                <a id="downloadzip" class="btn btn-success" href="@($"http://localhost:5081/api/FileCollection/MultiDownload?{string.Join('&',SelectedImages.Select((img)=>$"ids={img.ConvertedFileId}"))}")" role="button" target="=_top">Download As Zip</a>
+            }
         </div>
     </div>
 
-    @foreach (var file in SelectedImages)
+    <div id="" style="overflow: auto; height:400px;">
+
+@foreach (var file in SelectedImages)
     {
         <div class="card file mb-1">
             <div class="card-content">
@@ -31,13 +38,28 @@
                     <div class="align-self-center text-nowrap p-3 w-25">
                         <div class="align-middle">Convert to
                             <div class="dropdown b-dropdown format-dropdown btn-group">
-                                <button class="btn dropdown-toggle btn-outline-secondary" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="@(file.IsWaitingForResponse)">
+                                <button class="btn dropdown-toggle btn-outline-secondary" type="button" id="dropdownMenuButton" 
+                                    data-toggle="dropdown" 
+                                    aria-haspopup="true" 
+                                    aria-expanded="false" 
+                                    disabled="@(file.IsWaitingForResponse)"
+                                    @onclick="ClearSearchText">
                                     @(file.SelectedFormat != null ? file.SelectedFormat.ToString() : "...")
                                 </button>
                                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton" style="max-height: 280px; overflow-y: auto;">
-                                    @foreach (var format in Enum.GetValues<ImageFormats>())
+                                    <li>
+                                        <input type="text" class="form-control" placeholder="Search..." @bind="SearchText" @oninput="UpdateFilteredOptions" />
+                                    </li>
+                                    @if (FilteredOptions.Any())
                                     {
-                                        <a class="dropdown-item" @onclick="()=>SelectFormat(format, file)">@format.ToString()</a>
+                                        @foreach (var format in FilteredOptions)
+                                        {
+                                            <li><a class="dropdown-item" @onclick="()=>OnFormatSelect(format, file)">@format</a></li>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <li><a class="dropdown-item disabled" href="#">No results found</a></li>
                                     }
                                 </div>
                             </div>
@@ -66,17 +88,52 @@
             </div>
         </div>
     }
+
+    </div>
+
 </div>
 
 @code{
-    private List<ImageToConvert> SelectedImages { get; set; } = new List<ImageToConvert>();
     private const int MAX_ALLOWED_SIZE = 100000000;
     private const int MAX_ALLOWED_FILE = 100;
+
+    private List<ImageToConvert> SelectedImages { get; set; } = new List<ImageToConvert>();
+    private string SearchText { get; set; } = string.Empty;
+    private List<string> WritableFormats { get; set; } = new List<string>();
+    private List<string> ReadableFormats { get; set; } = new List<string>();
+    private List<string> FilteredOptions { get; set; } = new();
+
     protected override void OnInitialized()
     {
-        base.OnInitialized();
+        string rootPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+        string filePath = Path.Combine(rootPath, "format-info.json");
+
+        string jsonString = File.ReadAllText(filePath);
+        var model = JsonSerializer.Deserialize<List<FileFormat>>(jsonString);
+
+        if (model != null)
+        {
+            WritableFormats = model.Where((f) => f.IsWritable).Select((f) => f.Format).ToList();
+            ReadableFormats = model.Where((f) => f.IsReadable).Select((f) => f.Format).ToList();
+            FilteredOptions = WritableFormats;
+        }
     }
-    private async void SelectFormat(ImageFormats format, ImageToConvert file) //duplicate code, needs clean upp
+    private void UpdateFilteredOptions(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? string.Empty;
+
+        FilteredOptions = WritableFormats
+            .Where(option => string.IsNullOrWhiteSpace(SearchText) || option.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+    private async void ClearSearchText()
+    {
+        SearchText = string.Empty;
+        FilteredOptions = WritableFormats;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnFormatSelect(string format, ImageToConvert file) //duplicate code, needs clean upp
     {
         file.SelectedFormat = format;
         var temp = file.ConvertedFileId;
@@ -101,18 +158,21 @@
         }
     }
 
-    private async void AddFileToList(InputFileChangeEventArgs e)
+    private async Task AddFileToList(InputFileChangeEventArgs e)
     {
         foreach (var file in e.GetMultipleFiles(MAX_ALLOWED_FILE))
         {
             if (!SelectedImages.Any(f => f.FileName == file.Name))
             {
+                var extension = Path.GetExtension(file.Name);
+                var randomFile = Path.GetTempFileName();
+                var targetFilePath = Path.ChangeExtension(randomFile, extension);
+
+                if (!ReadableFormats.Any((r) => r.ToLower() == extension.ToLower()[1..]))
+                    continue; //show error
+
                 using (var fileStream = file.OpenReadStream(MAX_ALLOWED_SIZE))
                 {
-                    var randomFile = Path.GetTempFileName();
-                    var extension = Path.GetExtension(file.Name);
-                    var targetFilePath = Path.ChangeExtension(randomFile, extension);
-
                     var destinationStream = new FileStream(targetFilePath, FileMode.Create);
                     await fileStream.CopyToAsync(destinationStream);
                     destinationStream.Close();
@@ -122,15 +182,15 @@
             }
         }
     }
-    private void Submit()
+    private async Task Submit()
     {
         List<Task> submitFilesForConversion = new List<Task>();
         foreach(var file in SelectedImages.Where((f)=> f.SelectedFormat != null && f.ConvertedFileId == null))
         {
+            file.IsWaitingForResponse = true;
+            await InvokeAsync(StateHasChanged);
             submitFilesForConversion.Add(Task.Factory.StartNew(async () =>
             {
-                file.IsWaitingForResponse = true;
-                await InvokeAsync(StateHasChanged);
                 try
                 {
                     var client = new RestClient("http://host.docker.internal:5081/");
@@ -141,13 +201,13 @@
 
                     request.AddFile("file", file.PathToFile);
 
-                    request.AddParameter("convertTo", file.SelectedFormat.ToString());
+                    request.AddParameter("convertTo", file.SelectedFormat);
 
                     request.AddParameter("fileName", file.FileName);
 
                     var response = client.ExecutePost(request);
 
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    if (response.StatusCode != System.Net.HttpStatusCode.OK)
                         throw new Exception("Conversion not possible");
 
                     file.ConvertedFileId = String.Concat(response.Content.Where((c) => c != '\"'));
@@ -164,7 +224,7 @@
             })
             );
         }
-        Task.WaitAll(submitFilesForConversion.ToArray());
+        await Task.WhenAll(submitFilesForConversion.ToArray());
     }
     private async Task Delete(ImageToConvert file)
     {
@@ -190,7 +250,7 @@
     {
         public string PathToFile { get; set; }
         public string FileName { get; set; }
-        public ImageFormats? SelectedFormat { get; set; } = null!;
+        public string? SelectedFormat { get; set; } = null!;
         public string? ConvertedFileId { get; set; } = null!;
         public string? ErrorMessage { get; set; } = null!;
         public bool IsWaitingForResponse { get; set; }
@@ -201,5 +261,13 @@
             IsWaitingForResponse = false;
             FileName = fileName;
         }
+    }
+    [System.Serializable]
+    public class FileFormat
+    {
+        public required string Format { get; set; }
+        public required string Mime { get; set; }
+        public bool IsReadable { get; set; }
+        public bool IsWritable { get; set; }
     }
 }
